@@ -1,0 +1,33 @@
+service: express-dynamo-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: eu-north-1
+  environment:
+    TABLE_NAME: YourDynamoTableName
+
+functions:
+  app:
+    handler: handler.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: any
+
+plugins:
+  - serverless-offline
+
+resources:
+  Resources:
+    YourDynamoTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: YourDynamoTableName
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
