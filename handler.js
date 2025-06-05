@@ -3,6 +3,7 @@ const serverless = require('serverless-http');
 require('dotenv').config();
 
 const adminRoutes = require('./src/routes/admin');
+const writerRoutes = require('./src/routes/writer');
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/admin', adminRoutes);
+app.use('/api/writer', writerRoutes);
 
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'Backend is running' });

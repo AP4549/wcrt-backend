@@ -97,8 +97,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-const verifyToken = require('../middleware/verifyToken');
-
 // Protected route
 router.get('/protected', verifyToken, (req, res) => {
   res.status(200).json({
@@ -107,16 +105,6 @@ router.get('/protected', verifyToken, (req, res) => {
     admin: req.admin, // Decoded token data
   });
 });
-
-// Protected route
-router.get('/protected', verifyToken, (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    message: 'You have accessed a protected route',
-    admin: req.admin, // Decoded token data
-  });
-});
-
 
 
 module.exports = router;
