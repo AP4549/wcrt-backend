@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const dynamo = require('../services/db');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+const verifyToken = require('../middleware/verifyToken');
 
-const TABLE_NAME = 'wcrt-admin';
+const TABLE_NAME = process.env.ADMIN_TABLE || 'wcrt-admin'; // use env var fallback
 
 // GET all admins
 router.get('/', async (req, res) => {
@@ -22,33 +25,23 @@ router.get('/', async (req, res) => {
 // POST admin login
 router.post('/login', async (req, res) => {
   let formData;
-  
+
   try {
-    // Handle case where body is Buffer
+    // Parse request body
     if (Buffer.isBuffer(req.body)) {
       formData = JSON.parse(req.body.toString());
-    } 
-    // Handle case where body is already parsed
-    else if (typeof req.body === 'object') {
+    } else if (typeof req.body === 'object') {
       formData = req.body;
-    }
-    // Handle invalid cases
-    else {
-      return res.status(400).json({ 
+    } else {
+      return res.status(400).json({
         status: 'error',
-        error: 'Invalid request body format' 
+        error: 'Invalid request body format'
       });
     }
 
-    console.log('Processing login request:', {
-      hasUsername: !!formData.adminUserName,
-      hasPassword: !!formData.adminPassword
-    });
-    
-    // Validate required fields
     const { adminUserName, adminPassword } = formData;
     if (!adminUserName || !adminPassword) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         status: 'error',
         error: 'Username and password are required',
         details: {
@@ -70,18 +63,24 @@ router.post('/login', async (req, res) => {
     const data = await dynamo.scan(params).promise();
 
     if (data.Items.length === 1) {
-      // Successful login
       const admin = data.Items[0];
-      // Don't send password back in response
       const { adminPassword, ...safeAdminData } = admin;
-      
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { adminId: admin.id, adminUserName: admin.adminUserName },
+        process.env.JWT_SECRET,
+        { expiresIn: '2h' }
+      );
+
       res.status(200).json({
         status: 'success',
         message: 'Login successful',
+        token, // send token here
         data: safeAdminData
       });
     } else {
-      res.status(401).json({ 
+      res.status(401).json({
         status: 'error',
         error: 'Invalid credentials',
         message: 'The provided username or password is incorrect'
@@ -89,7 +88,7 @@ router.post('/login', async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
       error: 'Internal server error',
       message: 'An unexpected error occurred while processing your request',
@@ -97,5 +96,27 @@ router.post('/login', async (req, res) => {
     });
   }
 });
+
+const verifyToken = require('../middleware/verifyToken');
+
+// Protected route
+router.get('/protected', verifyToken, (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'You have accessed a protected route',
+    admin: req.admin, // Decoded token data
+  });
+});
+
+// Protected route
+router.get('/protected', verifyToken, (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'You have accessed a protected route',
+    admin: req.admin, // Decoded token data
+  });
+});
+
+
 
 module.exports = router;

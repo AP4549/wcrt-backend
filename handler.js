@@ -1,5 +1,6 @@
 const express = require('express');
 const serverless = require('serverless-http');
+require('dotenv').config();
 
 const adminRoutes = require('./src/routes/admin');
 
