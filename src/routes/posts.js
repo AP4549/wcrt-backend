@@ -96,4 +96,58 @@ router.get('/s3/upload-url', verifyToken, async (req, res) => {
     }
   });
 
+// GET all posts (no auth)
+router.get('/', async (req, res) => {
+    try {
+        const params = {
+            TableName: TABLE_NAME
+        };
+
+        const data = await dynamo.scan(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            posts: data.Items
+        });
+    } catch (error) {
+        console.error('Error fetching posts:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch posts'
+        });
+    }
+});
+
+// GET posts by category (no auth)
+router.get('/category/:categoryName', async (req, res) => {
+    const { categoryName } = req.params;
+
+    const params = {
+        TableName: TABLE_NAME,
+        FilterExpression: '#cat = :categoryVal',
+        ExpressionAttributeNames: {
+            '#cat': 'category'
+        },
+        ExpressionAttributeValues: {
+            ':categoryVal': categoryName
+        }
+    };
+
+    try {
+        const data = await dynamo.scan(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            category: categoryName,
+            posts: data.Items
+        });
+    } catch (error) {
+        console.error('Error fetching posts by category:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch posts by category'
+        });
+    }
+});
+
 module.exports = router;
