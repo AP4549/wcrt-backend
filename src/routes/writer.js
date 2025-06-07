@@ -27,24 +27,19 @@ router.get('/', verifyToken, async (req, res) => {
 router.post('/', verifyToken, async (req, res) => {
     try {
         let formData;
-        
-        // Handle case where body is Buffer
+
         if (Buffer.isBuffer(req.body)) {
             formData = JSON.parse(req.body.toString());
-        } 
-        // Handle case where body is already parsed
-        else if (typeof req.body === 'object') {
+        } else if (typeof req.body === 'object') {
             formData = req.body;
-        }
-        // Handle invalid cases
-        else {
+        } else {
             return res.status(400).json({ error: 'Invalid request body format' });
         }
 
-        console.log('Create writer - Request body:', formData); // Debug log
-        console.log('Create writer - Auth header:', req.headers.authorization); // Debug log
-        
-        const { writerName, writerPassword, fullName, email } = formData;
+        console.log('Create writer - Request body:', formData);
+        console.log('Create writer - Auth header:', req.headers.authorization);
+
+        const { writerName, writerPassword, fullName, email, categories } = formData;
 
         if (!writerName || !writerPassword || !fullName || !email) {
             return res.status(400).json({
@@ -56,6 +51,14 @@ router.post('/', verifyToken, async (req, res) => {
                     fullName: !fullName ? 'Missing full name' : null,
                     email: !email ? 'Missing email' : null
                 }
+            });
+        }
+
+        // Validate categories (optional but good)
+        if (categories && !Array.isArray(categories)) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Invalid categories format. It should be an array of strings.'
             });
         }
 
@@ -80,6 +83,7 @@ router.post('/', verifyToken, async (req, res) => {
             writerPassword,
             fullName,
             email,
+            categories: categories || [], // Save categories
             createdAt: new Date().toISOString()
         };
 
