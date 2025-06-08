@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dynamo = require('../services/db');
 const verifyToken = require('../middleware/verifyToken');
+const verifyAdmin = require('../middleware/verifyAdmin');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -9,7 +10,7 @@ require('dotenv').config();
 const TABLE_NAME = process.env.WRITER_TABLE || 'wcrt-writers';
 
 // GET all writers (protected route)
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, verifyAdmin, async (req, res) => {
     const params = {
       TableName: TABLE_NAME
     };
@@ -24,7 +25,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // POST create writer (protected route - only admins can create writers)
-router.post('/', verifyToken, async (req, res) => {
+router.post('/', verifyToken, verifyAdmin, async (req, res) => {
     try {
         let formData;
 
@@ -157,7 +158,7 @@ router.post('/login', async (req, res) => {
             const writer = data.Items[0];
             const { writerPassword, ...safeWriterData } = writer;            // Generate JWT token
             const token = jwt.sign(
-                { writerName: writer.writerName },
+                { writerName: writer.writerName, role: 'writer' },
                 process.env.JWT_SECRET,
                 { expiresIn: '2h' }
             );
@@ -186,7 +187,7 @@ router.post('/login', async (req, res) => {
 });
 
 // DELETE writer (protected route)
-router.delete('/:writerName', verifyToken, async (req, res) => {
+router.delete('/:writerName', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const { writerName } = req.params;
 
