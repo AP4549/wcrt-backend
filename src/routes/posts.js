@@ -26,11 +26,13 @@ router.post('/', verifyToken, verifyWriter, async (req, res) => {
             title,
             content,
             imageUrl,
-            authorImage,
+            // authorImage,
+            authorName,  // Changed from writerName to authorName
             category
         } = formData;
+        const authorImage = formData.authorImage || 'https://wcrt-content-images.s3.eu-north-1.amazonaws.com/author.png';
 
-        if (!title || !content || !imageUrl || !authorImage || !category) {
+        if (!title || !content || !imageUrl || !authorName || !category) {
             return res.status(400).json({
                 status: 'error',
                 error: 'Missing required fields',
@@ -38,13 +40,12 @@ router.post('/', verifyToken, verifyWriter, async (req, res) => {
                     title: !title ? 'Missing title' : null,
                     content: !content ? 'Missing content' : null,
                     imageUrl: !imageUrl ? 'Missing image URL' : null,
-                    authorImage: !authorImage ? 'Missing author image URL' : null,
+                    // authorImage: !authorImage ? 'Missing author image URL' : null,
+                    authorName: !authorName ? 'Missing author name' : null,
                     category: !category ? 'Missing category' : null
                 }
             });
         }
-
-        const writerName = req.user?.writerName;
 
         const post = {
             postId: uuidv4(),
@@ -52,8 +53,9 @@ router.post('/', verifyToken, verifyWriter, async (req, res) => {
             content,
             imageUrl,
             authorImage,
+            authorName, 
+            writerName: req.user.writerName, 
             category,
-            writerName,
             uploadDate: new Date().toISOString(),
             viewCount: 0,
             post_status: 'open'
@@ -79,23 +81,44 @@ router.post('/', verifyToken, verifyWriter, async (req, res) => {
     }
 });
 
+// In your /s3/upload-url endpoint:
 router.get('/s3/upload-url', verifyToken, verifyWriter, async (req, res) => {
     const { fileName, fileType } = req.query;
   
-    const params = {
+    // Validate inputs
+    if (!fileName || !fileType) {
+      return res.status(400).json({ error: 'Missing fileName or fileType' });
+    }
+  
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(fileType)) {
+      return res.status(400).json({ error: 'Invalid file type' });
+    }
+  
+    // Configure S3 parameters
+    const s3Params = {
       Bucket: process.env.S3_BUCKET,
-      Key: fileName,
+      Key: `uploads/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.]/g, '-')}`, // Sanitize filename
       ContentType: fileType,
-      Expires: 60, // 1 minute
-      ACL: 'public-read' // or private
+      Expires: 60 * 5, // 5 minutes
+      // Remove ACL if your bucket has strict policies
     };
   
     try {
-      const uploadURL = await s3.getSignedUrlPromise('putObject', params);
-      res.status(200).json({ uploadURL });
+      const uploadURL = await s3.getSignedUrlPromise('putObject', s3Params);
+      const publicUrl = `https://${s3Params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Params.Key}`;
+      
+      res.status(200).json({
+        uploadURL,
+        publicUrl,
+        key: s3Params.Key // For debugging
+      });
     } catch (err) {
-      console.error('Error creating S3 presigned URL', err);
-      res.status(500).json({ error: 'Failed to get S3 upload URL' });
+      console.error('S3 URL generation error:', err);
+      res.status(500).json({ 
+        error: 'Failed to generate upload URL',
+        details: err.message 
+      });
     }
   });
 
@@ -153,10 +176,53 @@ router.get('/category/:categoryName', async (req, res) => {
     }
 });
 
+// GET all posts with post_status = 'open'
+router.get('/status/open', async (req, res) => {
+    const params = {
+        TableName: TABLE_NAME,
+        FilterExpression: 'post_status = :openStatus',
+        ExpressionAttributeValues: {
+            ':openStatus': 'open'
+        }
+    };
+
+    try {
+        const data = await dynamo.scan(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            posts: data.Items
+        });
+    } catch (error) {
+        console.error('Error fetching open posts:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch open posts'
+        });
+    }
+});
+
+
 router.patch('/:postId/status', verifyToken, verifyAdmin, async (req, res) => {
     const { postId } = req.params;
-    const { post_status } = req.body;
 
+    // Handle Buffer body
+    let post_status;
+    if (Buffer.isBuffer(req.body)) {
+        try {
+            const parsed = JSON.parse(req.body.toString());
+            post_status = parsed.post_status;
+        } catch (err) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Invalid JSON body'
+            });
+        }
+    } else {
+        post_status = req.body.post_status;
+    }
+
+    // Validate post_status
     if (!post_status || !['open', 'approved', 'rejected'].includes(post_status)) {
         return res.status(400).json({
             status: 'error',
@@ -166,9 +232,7 @@ router.patch('/:postId/status', verifyToken, verifyAdmin, async (req, res) => {
 
     const params = {
         TableName: TABLE_NAME,
-        Key: {
-            postId
-        },
+        Key: { postId },
         UpdateExpression: 'SET post_status = :status',
         ExpressionAttributeValues: {
             ':status': post_status

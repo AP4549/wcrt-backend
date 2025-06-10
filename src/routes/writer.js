@@ -222,4 +222,63 @@ router.delete('/:writerName', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// PATCH change writer password (admin only)
+router.patch('/:writerName/password', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { writerName } = req.params;
+
+        // Handle body parsing (in case it comes as Buffer)
+        let newPassword;
+        if (Buffer.isBuffer(req.body)) {
+            const parsedBody = JSON.parse(req.body.toString());
+            newPassword = parsedBody.newPassword;
+        } else {
+            newPassword = req.body.newPassword;
+        }
+
+        if (!newPassword) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'New password is required'
+            });
+        }
+
+        // Check if writer exists
+        const writerData = await dynamo.get({
+            TableName: TABLE_NAME,
+            Key: { writerName }
+        }).promise();
+
+        if (!writerData.Item) {
+            return res.status(404).json({
+                status: 'error',
+                error: 'Writer not found'
+            });
+        }
+
+        // Update password
+        await dynamo.update({
+            TableName: TABLE_NAME,
+            Key: { writerName },
+            UpdateExpression: 'SET writerPassword = :newPassword',
+            ExpressionAttributeValues: {
+                ':newPassword': newPassword
+            }
+        }).promise();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Password updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating password:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
+
+
 module.exports = router;
