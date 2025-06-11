@@ -256,5 +256,98 @@ router.patch('/:postId/status', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// GET post by postId (no auth)
+router.get('/:postId', async (req, res) => {
+    const { postId } = req.params;
+
+    const params = {
+        TableName: TABLE_NAME,
+        Key: {
+            postId
+        }
+    };
+
+    try {
+        const data = await dynamo.get(params).promise();
+
+        if (!data.Item) {
+            return res.status(404).json({
+                status: 'error',
+                error: 'Post not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            post: data.Item
+        });
+    } catch (error) {
+        console.error('Error fetching post by ID:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch post'
+        });
+    }
+});
+
+// GET all posts with post_status = 'approved' (no auth)
+router.get('/status/approved', async (req, res) => {
+    const params = {
+        TableName: TABLE_NAME,
+        FilterExpression: 'post_status = :approvedStatus',
+        ExpressionAttributeValues: {
+            ':approvedStatus': 'approved'
+        }
+    };
+
+    try {
+        const data = await dynamo.scan(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            posts: data.Items
+        });
+    } catch (error) {
+        console.error('Error fetching approved posts:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch approved posts'
+        });
+    }
+});
+
+// GET approved posts by category (no auth)
+router.get('/category/:categoryName/approved', async (req, res) => {
+    const { categoryName } = req.params;
+
+    const params = {
+        TableName: TABLE_NAME,
+        FilterExpression: '#cat = :categoryVal AND post_status = :approvedStatus',
+        ExpressionAttributeNames: {
+            '#cat': 'category'
+        },
+        ExpressionAttributeValues: {
+            ':categoryVal': categoryName,
+            ':approvedStatus': 'approved'
+        }
+    };
+
+    try {
+        const data = await dynamo.scan(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            category: categoryName,
+            posts: data.Items
+        });
+    } catch (error) {
+        console.error('Error fetching approved posts by category:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch approved posts by category'
+        });
+    }
+});
+
 
 module.exports = router;
