@@ -114,7 +114,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-eu-north-1-aa1edb09-c88d",
-          "S3Key": "serverless/wcrt-backend/dev/1749637651387-2025-06-11T10:27:31.387Z/wcrt-backend.zip"
+          "S3Key": "serverless/wcrt-backend/dev/1750538091354-2025-06-21T20:34:51.354Z/wcrt-backend.zip"
         },
         "Handler": "handler.handler",
         "Runtime": "nodejs18.x",
@@ -141,14 +141,14 @@
         "AppLogGroup"
       ]
     },
-    "AppLambdaVersionAAZQ8eWPYk9TJDfPMLcxYeSUKMZ28OR4AxTC1nIMsM": {
+    "AppLambdaVersionRmQK3L6EM1wGT1kfUWUoIo4HAmwf2egir1ytKATp0": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "AppLambdaFunction"
         },
-        "CodeSha256": "fDAdbVedKI59g+AbVKxs2oiHDAUT3O69DGbTior6bDQ="
+        "CodeSha256": "4T3eSGLaukBZ9cijxsecnoeo2UJknicMNceIMNr6iIE="
       }
     },
     "ApiGatewayRestApi": {
@@ -224,7 +224,7 @@
         "AppLambdaPermissionApiGateway"
       ]
     },
-    "ApiGatewayDeployment1749637631752": {
+    "ApiGatewayDeployment1750538070627": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
         "RestApiId": {
@@ -284,7 +284,7 @@
     "AppLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "AppLambdaVersionAAZQ8eWPYk9TJDfPMLcxYeSUKMZ28OR4AxTC1nIMsM"
+        "Ref": "AppLambdaVersionRmQK3L6EM1wGT1kfUWUoIo4HAmwf2egir1ytKATp0"
       },
       "Export": {
         "Name": "sls-wcrt-backend-dev-AppLambdaFunctionQualifiedArn"

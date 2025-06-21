@@ -222,6 +222,103 @@ router.delete('/:writerName', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+//Update Writer
+router.patch('/:writerName', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { writerName } = req.params;
+
+        // Parse request body
+        let updateData;
+        if (Buffer.isBuffer(req.body)) {
+            updateData = JSON.parse(req.body.toString());
+        } else if (typeof req.body === 'object') {
+            updateData = req.body;
+        } else {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Invalid request body format'
+            });
+        }
+
+        const { email, fullName, categories } = updateData;
+
+        // At least one field must be provided
+        if (!email && !fullName && !categories) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'At least one field (email, fullName, categories) must be provided for update'
+            });
+        }
+
+        if (categories && !Array.isArray(categories)) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Invalid categories format. It should be an array of strings.'
+            });
+        }
+
+        // Check if writer exists
+        const writerData = await dynamo.get({
+            TableName: TABLE_NAME,
+            Key: { writerName }
+        }).promise();
+
+        if (!writerData.Item) {
+            return res.status(404).json({
+                status: 'error',
+                error: 'Writer not found'
+            });
+        }
+
+        // Build dynamic update expression
+        let updateExpression = 'SET';
+        const expressionAttributeValues = {};
+        const expressionAttributeNames = {};
+
+        if (email) {
+            updateExpression += ' #email = :email,';
+            expressionAttributeNames['#email'] = 'email';
+            expressionAttributeValues[':email'] = email;
+        }
+
+        if (fullName) {
+            updateExpression += ' #fullName = :fullName,';
+            expressionAttributeNames['#fullName'] = 'fullName';
+            expressionAttributeValues[':fullName'] = fullName;
+        }
+
+        if (categories) {
+            updateExpression += ' #categories = :categories,';
+            expressionAttributeNames['#categories'] = 'categories';
+            expressionAttributeValues[':categories'] = categories;
+        }
+
+        // Remove trailing comma
+        updateExpression = updateExpression.slice(0, -1);
+
+        // Update item
+        await dynamo.update({
+            TableName: TABLE_NAME,
+            Key: { writerName },
+            UpdateExpression: updateExpression,
+            ExpressionAttributeValues: expressionAttributeValues,
+            ExpressionAttributeNames: expressionAttributeNames
+        }).promise();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Writer details updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating writer details:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
+
 // PATCH change writer password (admin only)
 router.patch('/:writerName/password', verifyToken, verifyAdmin, async (req, res) => {
     try {
