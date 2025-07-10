@@ -9,6 +9,48 @@ const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 
 const TABLE_NAME = process.env.POSTS_TABLE || 'wcrt-posts';
+const VIEWS_TABLE = process.env.VIEWS_TABLE || 'wcrt-views';
+
+// Function to record a view
+async function recordView(postId, viewerInfo = {}) {
+    try {
+        // Update or create the view count record in the views table
+        const getParams = {
+            TableName: VIEWS_TABLE,
+            Key: { views_ID: postId }
+        };
+        const existing = await dynamo.get(getParams).promise();
+
+        let newCount = 1;
+        if (existing.Item && typeof existing.Item.viewCount === 'number') {
+            newCount = existing.Item.viewCount + 1;
+        }
+
+        const putParams = {
+            TableName: VIEWS_TABLE,
+            Item: {
+                views_ID: postId,
+                viewCount: newCount
+            }
+        };
+        await dynamo.put(putParams).promise();
+
+        // Increment view count in posts table
+        await dynamo.update({
+            TableName: TABLE_NAME,
+            Key: { postId },
+            UpdateExpression: 'ADD viewCount :inc',
+            ExpressionAttributeValues: {
+                ':inc': 1
+            }
+        }).promise();
+
+        return { views_ID: postId, viewCount: newCount };
+    } catch (error) {
+        console.error('Error recording view:', error);
+        throw error;
+    }
+}
 
 router.post('/', verifyToken, verifyWriter, async (req, res) => {
     try {
@@ -259,12 +301,9 @@ router.patch('/:postId/status', verifyToken, verifyAdmin, async (req, res) => {
 // GET post by postId (no auth)
 router.get('/:postId', async (req, res) => {
     const { postId } = req.params;
-
     const params = {
         TableName: TABLE_NAME,
-        Key: {
-            postId
-        }
+        Key: { postId }
     };
 
     try {
@@ -277,9 +316,19 @@ router.get('/:postId', async (req, res) => {
             });
         }
 
+        // Record the view and increment viewCount
+        await recordView(postId, {
+            ipAddress: req.ip || null,
+            userAgent: req.get('User-Agent') || null,
+            referrer: req.get('Referrer') || req.get('Referer') || null
+        });
+
+        // Fetch updated post data to get current view count
+        const updatedData = await dynamo.get(params).promise();
+
         res.status(200).json({
             status: 'success',
-            post: data.Item
+            post: updatedData.Item
         });
     } catch (error) {
         console.error('Error fetching post by ID:', error);
@@ -349,5 +398,255 @@ router.get('/category/:categoryName/approved', async (req, res) => {
     }
 });
 
+
+// GET view statistics for all posts (admin only)
+router.get('/analytics/overview', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        let filterExpression = undefined;
+        let expressionAttributeValues = undefined;
+
+        // Add date range filter if provided
+        if (startDate && endDate) {
+            filterExpression = 'viewedAt BETWEEN :startDate AND :endDate';
+            expressionAttributeValues = {
+                ':startDate': startDate,
+                ':endDate': endDate
+            };
+        }
+
+        const params = {
+            TableName: VIEWS_TABLE,
+            ...(filterExpression && { FilterExpression: filterExpression }),
+            ...(expressionAttributeValues && { ExpressionAttributeValues: expressionAttributeValues })
+        };
+
+        const data = await dynamo.scan(params).promise();
+
+        // Group views by postId
+        const viewsByPost = {};
+        const viewsByDate = {};
+        
+        data.Items.forEach(view => {
+            // Views by post
+            viewsByPost[view.postId] = (viewsByPost[view.postId] || 0) + 1;
+            
+            // Views by date
+            const date = view.viewedAt.split('T')[0];
+            viewsByDate[date] = (viewsByDate[date] || 0) + 1;
+        });
+
+        // Get top 10 most viewed posts
+        const topPosts = Object.entries(viewsByPost)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10)
+            .map(([postId, views]) => ({ postId, views }));
+
+        res.status(200).json({
+            status: 'success',
+            totalViews: data.Items.length,
+            uniquePosts: Object.keys(viewsByPost).length,
+            topPosts,
+            viewsByDate,
+            dateRange: {
+                startDate: startDate || null,
+                endDate: endDate || null
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching view overview:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch view overview'
+        });
+    }
+});
+
+// GET popular posts based on view count (public)
+router.get('/popular/trending', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+        const category = req.query.category;
+
+        let filterExpression = 'post_status = :status';
+        let expressionAttributeValues = {
+            ':status': 'approved'
+        };
+
+        // Add category filter if provided
+        if (category) {
+            filterExpression += ' AND category = :category';
+            expressionAttributeValues[':category'] = category;
+        }
+
+        const params = {
+            TableName: TABLE_NAME,
+            FilterExpression: filterExpression,
+            ExpressionAttributeValues: expressionAttributeValues
+        };
+
+        const data = await dynamo.scan(params).promise();
+
+        // Sort by view count (descending) and limit results
+        const popularPosts = data.Items
+            .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+            .slice(0, limit);
+
+        res.status(200).json({
+            status: 'success',
+            posts: popularPosts,
+            category: category || 'all',
+            limit
+        });
+
+    } catch (error) {
+        console.error('Error fetching popular posts:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to fetch popular posts'
+        });
+    }
+});
+
+// Increment views for a post
+
+// Increment views for a post (creates or updates a view count record in views table and increments in posts table)
+router.post('/:postId/views', async (req, res) => {
+    try {
+        const { postId } = req.params;
+
+        // Try to get the existing view count record for this post
+        const getParams = {
+            TableName: VIEWS_TABLE,
+            Key: { views_ID: postId }
+        };
+        const existing = await dynamo.get(getParams).promise();
+
+        let newCount = 1;
+        if (existing.Item && typeof existing.Item.viewCount === 'number') {
+            newCount = existing.Item.viewCount + 1;
+        }
+
+        // Put or update the view count record, always include postId
+        const putParams = {
+            TableName: VIEWS_TABLE,
+            Item: {
+                views_ID: postId,
+                postId: postId,
+                viewCount: newCount
+            }
+        };
+        await dynamo.put(putParams).promise();
+
+        // Also increment viewCount in the posts table
+        await dynamo.update({
+            TableName: TABLE_NAME,
+            Key: { postId },
+            UpdateExpression: 'ADD viewCount :inc',
+            ExpressionAttributeValues: {
+                ':inc': 1
+            }
+        }).promise();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'View count updated successfully',
+            data: { views_ID: postId, postId: postId, viewCount: newCount }
+        });
+    } catch (error) {
+        console.error('Error updating views:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
+
+// Get views for a post
+
+// Get views for a post (from views table)
+router.get('/:postId/views', async (req, res) => {
+    try {
+        const { postId } = req.params;
+
+        const params = {
+            TableName: VIEWS_TABLE,
+            Key: { views_ID: postId }
+        };
+
+        const result = await dynamo.get(params).promise();
+        let data = result.Item;
+        if (!data) {
+            data = { views_ID: postId, postId: postId, viewCount: 0 };
+        } else {
+            // Ensure postId is present in the response
+            if (!data.postId) data.postId = postId;
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'View count retrieved successfully',
+            data: data
+        });
+    } catch (error) {
+        console.error('Error retrieving views:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
+
+// Edit post (writer only)
+router.patch('/:postId', verifyWriter, async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { title, content } = req.body;
+
+        if (!title && !content) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Missing fields to update'
+            });
+        }
+
+        const updateExpression = [];
+        const expressionAttributeValues = {};
+
+        if (title) {
+            updateExpression.push('title = :title');
+            expressionAttributeValues[':title'] = title;
+        }
+
+        if (content) {
+            updateExpression.push('content = :content');
+            expressionAttributeValues[':content'] = content;
+        }
+
+        const params = {
+            TableName: POSTS_TABLE,
+            Key: { post_ID: postId },
+            UpdateExpression: `SET ${updateExpression.join(', ')}`,
+            ExpressionAttributeValues: expressionAttributeValues,
+            ReturnValues: 'UPDATED_NEW'
+        };
+
+        const result = await dynamo.update(params).promise();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Post updated successfully',
+            data: result.Attributes
+        });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
 
 module.exports = router;
