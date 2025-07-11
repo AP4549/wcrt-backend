@@ -377,5 +377,67 @@ router.patch('/:writerName/password', verifyToken, verifyAdmin, async (req, res)
     }
 });
 
+router.patch('/:writerName/categories', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { writerName } = req.params;
+
+        // Parse body safely
+        let categories;
+        if (Buffer.isBuffer(req.body)) {
+            const parsedBody = JSON.parse(req.body.toString());
+            categories = parsedBody.categories;
+        } else {
+            categories = req.body.categories;
+        }
+
+        // Validate categories
+        if (!Array.isArray(categories)) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Categories must be an array of strings'
+            });
+        }
+
+        // Check if writer exists
+        const writerData = await dynamo.get({
+            TableName: TABLE_NAME,
+            Key: { writerName }
+        }).promise();
+
+        if (!writerData.Item) {
+            return res.status(404).json({
+                status: 'error',
+                error: 'Writer not found'
+            });
+        }
+
+        // Convert to DynamoDB format
+        const dynamoFormattedCategories = categories.map(cat => ({ S: cat }));
+
+        // Update categories
+        await dynamo.update({
+            TableName: TABLE_NAME,
+            Key: { writerName },
+            UpdateExpression: 'SET categories = :categories',
+            ExpressionAttributeValues: {
+                ':categories': dynamoFormattedCategories
+            }
+        }).promise();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Categories updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Error updating categories:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Internal server error'
+        });
+    }
+});
+
+
 
 module.exports = router;
