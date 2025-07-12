@@ -11,6 +11,7 @@ provider:
     POSTS_TABLE: ${env:POSTS_TABLE}
     WRITER_TABLE: ${env:WRITER_TABLE}
     S3_BUCKET: ${env:S3_BUCKET}
+    COMMENTS_TABLE: ${env:COMMENTS_TABLE}
 
   iamRoleStatements:
     - Effect: Allow
@@ -19,10 +20,13 @@ provider:
         - dynamodb:GetItem
         - dynamodb:Scan
         - dynamodb:DeleteItem
+        - dynamodb:UpdateItem
       Resource:
         - arn:aws:dynamodb:${self:provider.region}:*:table/${env:POSTS_TABLE}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${env:WRITER_TABLE}
         - arn:aws:dynamodb:${self:provider.region}:*:table/${env:ADMIN_TABLE}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:COMMENTS_TABLE}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:VIEWS_TABLE}
     - Effect: Allow
       Action:
         - s3:PutObject

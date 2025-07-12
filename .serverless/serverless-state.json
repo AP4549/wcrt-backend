@@ -13,7 +13,8 @@
         "ADMIN_TABLE": "wcrt-admin",
         "POSTS_TABLE": "wcrt-posts",
         "WRITER_TABLE": "wcrt-writers",
-        "S3_BUCKET": "wcrt-content-images"
+        "S3_BUCKET": "wcrt-content-images",
+        "COMMENTS_TABLE": "wcrt-comments"
       },
       "iamRoleStatements": [
         {
@@ -22,12 +23,15 @@
             "dynamodb:PutItem",
             "dynamodb:GetItem",
             "dynamodb:Scan",
-            "dynamodb:DeleteItem"
+            "dynamodb:DeleteItem",
+            "dynamodb:UpdateItem"
           ],
           "Resource": [
             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
           ]
         },
         {
@@ -141,7 +145,7 @@
             "Properties": {
               "Code": {
                 "S3Bucket": "serverless-framework-deployments-eu-north-1-aa1edb09-c88d",
-                "S3Key": "serverless/wcrt-backend/dev/1752260864723-2025-07-11T19:07:44.723Z/wcrt-backend.zip"
+                "S3Key": "serverless/wcrt-backend/dev/1752261640351-2025-07-11T19:20:40.351Z/wcrt-backend.zip"
               },
               "Handler": "handler.handler",
               "Runtime": "nodejs18.x",
@@ -154,7 +158,8 @@
                   "ADMIN_TABLE": "wcrt-admin",
                   "POSTS_TABLE": "wcrt-posts",
                   "WRITER_TABLE": "wcrt-writers",
-                  "S3_BUCKET": "wcrt-content-images"
+                  "S3_BUCKET": "wcrt-content-images",
+                  "COMMENTS_TABLE": "wcrt-comments"
                 }
               },
               "Role": {
@@ -168,14 +173,14 @@
               "AppLogGroup"
             ]
           },
-          "AppLambdaVersion4mKxsQwUlmq7onPhKABjFi7B6NMxQ9iVZZwMWJbxCz4": {
+          "AppLambdaVersionGt8Pw5OnwKW6Gq5dd7jFLXcZazt24rurkJoSpXY": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "AppLambdaFunction"
               },
-              "CodeSha256": "m6wXsmg7Jq4sEafnyltMuLOVmTDoq05eOtOrRDcyc4Y="
+              "CodeSha256": "KBz0bkwXhv2pXPIQrLT7vKy3WxcM+73hvUlu3u4PdWg="
             }
           },
           "ApiGatewayRestApi": {
@@ -251,7 +256,7 @@
               "AppLambdaPermissionApiGateway"
             ]
           },
-          "ApiGatewayDeployment1752260850844": {
+          "ApiGatewayDeployment1752261627781": {
             "Type": "AWS::ApiGateway::Deployment",
             "Properties": {
               "RestApiId": {
@@ -311,7 +316,7 @@
           "AppLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "AppLambdaVersion4mKxsQwUlmq7onPhKABjFi7B6NMxQ9iVZZwMWJbxCz4"
+              "Ref": "AppLambdaVersionGt8Pw5OnwKW6Gq5dd7jFLXcZazt24rurkJoSpXY"
             },
             "Export": {
               "Name": "sls-wcrt-backend-dev-AppLambdaFunctionQualifiedArn"
@@ -369,7 +374,7 @@
         "timeout": 6,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "AppLambdaVersion4mKxsQwUlmq7onPhKABjFi7B6NMxQ9iVZZwMWJbxCz4"
+        "versionLogicalId": "AppLambdaVersionGt8Pw5OnwKW6Gq5dd7jFLXcZazt24rurkJoSpXY"
       }
     },
     "configValidationMode": "warn",
@@ -393,7 +398,7 @@
     "artifact": "D:\\Internship\\URE Legal\\WCRT\\wcrt-backend\\.serverless\\wcrt-backend.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/wcrt-backend/dev/1752260864723-2025-07-11T19:07:44.723Z",
+    "artifactDirectoryName": "serverless/wcrt-backend/dev/1752261640351-2025-07-11T19:20:40.351Z",
     "artifact": "wcrt-backend.zip"
   }
 }

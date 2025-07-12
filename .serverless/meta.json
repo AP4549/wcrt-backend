@@ -15,7 +15,8 @@
           "ADMIN_TABLE": "wcrt-admin",
           "POSTS_TABLE": "wcrt-posts",
           "WRITER_TABLE": "wcrt-writers",
-          "S3_BUCKET": "wcrt-content-images"
+          "S3_BUCKET": "wcrt-content-images",
+          "COMMENTS_TABLE": "wcrt-comments"
         },
         "iamRoleStatements": [
           {
@@ -24,12 +25,15 @@
               "dynamodb:PutItem",
               "dynamodb:GetItem",
               "dynamodb:Scan",
-              "dynamodb:DeleteItem"
+              "dynamodb:DeleteItem",
+              "dynamodb:UpdateItem"
             ],
             "Resource": [
               "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
               "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-              "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+              "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+              "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+              "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
             ]
           },
           {
@@ -118,12 +122,15 @@
                             "dynamodb:PutItem",
                             "dynamodb:GetItem",
                             "dynamodb:Scan",
-                            "dynamodb:DeleteItem"
+                            "dynamodb:DeleteItem",
+                            "dynamodb:UpdateItem"
                           ],
                           "Resource": [
                             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
                             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-                            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+                            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+                            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+                            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
                           ]
                         },
                         {
@@ -173,7 +180,8 @@
                     "ADMIN_TABLE": "wcrt-admin",
                     "POSTS_TABLE": "wcrt-posts",
                     "WRITER_TABLE": "wcrt-writers",
-                    "S3_BUCKET": "wcrt-content-images"
+                    "S3_BUCKET": "wcrt-content-images",
+                    "COMMENTS_TABLE": "wcrt-comments"
                   }
                 },
                 "Role": {
@@ -400,7 +408,8 @@
         "ADMIN_TABLE": "wcrt-admin",
         "POSTS_TABLE": "wcrt-posts",
         "WRITER_TABLE": "wcrt-writers",
-        "S3_BUCKET": "wcrt-content-images"
+        "S3_BUCKET": "wcrt-content-images",
+        "COMMENTS_TABLE": "wcrt-comments"
       },
       "iamRoleStatements": [
         {
@@ -409,12 +418,15 @@
             "dynamodb:PutItem",
             "dynamodb:GetItem",
             "dynamodb:Scan",
-            "dynamodb:DeleteItem"
+            "dynamodb:DeleteItem",
+            "dynamodb:UpdateItem"
           ],
           "Resource": [
             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
             "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+            "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
           ]
         },
         {
@@ -503,12 +515,15 @@
                           "dynamodb:PutItem",
                           "dynamodb:GetItem",
                           "dynamodb:Scan",
-                          "dynamodb:DeleteItem"
+                          "dynamodb:DeleteItem",
+                          "dynamodb:UpdateItem"
                         ],
                         "Resource": [
                           "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
                           "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-                          "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+                          "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+                          "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+                          "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
                         ]
                       },
                       {
@@ -558,7 +573,8 @@
                   "ADMIN_TABLE": "wcrt-admin",
                   "POSTS_TABLE": "wcrt-posts",
                   "WRITER_TABLE": "wcrt-writers",
-                  "S3_BUCKET": "wcrt-content-images"
+                  "S3_BUCKET": "wcrt-content-images",
+                  "COMMENTS_TABLE": "wcrt-comments"
                 }
               },
               "Role": {
@@ -579,7 +595,7 @@
               "FunctionName": {
                 "Ref": "AppLambdaFunction"
               },
-              "CodeSha256": "m6wXsmg7Jq4sEafnyltMuLOVmTDoq05eOtOrRDcyc4Y="
+              "CodeSha256": "m6wXsmg7Jq4sEafnyltMuLOVmTDoq05eOtOrRDcyc4Y="              
             }
           },
           "ApiGatewayRestApi": {
@@ -760,7 +776,7 @@
       "serviceProvider": null,
       "instanceParameters": null
     },
-    "serviceRawFile": "service: wcrt-backend\r\nuseDotenv: true\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs18.x\r\n  region: eu-north-1\r\n  environment:\r\n    JWT_SECRET: ${env:JWT_SECRET}\r\n    ADMIN_TABLE: ${env:ADMIN_TABLE}\r\n    POSTS_TABLE: ${env:POSTS_TABLE}\r\n    WRITER_TABLE: ${env:WRITER_TABLE}\r\n    S3_BUCKET: ${env:S3_BUCKET}\r\n\r\n  iamRoleStatements:\r\n    - Effect: Allow\r\n      Action:\r\n        - dynamodb:PutItem\r\n        - dynamodb:GetItem\r\n        - dynamodb:Scan\r\n        - dynamodb:DeleteItem\r\n      Resource:\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:POSTS_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:WRITER_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:ADMIN_TABLE}\r\n    - Effect: Allow\r\n      Action:\r\n        - s3:PutObject\r\n        - s3:GetObject\r\n        - s3:PutObjectAcl\r\n      Resource: arn:aws:s3:::${env:S3_BUCKET}/*\r\n\r\nfunctions:\r\n  app:\r\n    handler: handler.handler\r\n    events:\r\n      - http:\r\n          path: /{proxy+}\r\n          method: any\r\n\r\nplugins:\r\n  - serverless-offline\r\n",
+    "serviceRawFile": "service: wcrt-backend\r\nuseDotenv: true\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs18.x\r\n  region: eu-north-1\r\n  environment:\r\n    JWT_SECRET: ${env:JWT_SECRET}\r\n    ADMIN_TABLE: ${env:ADMIN_TABLE}\r\n    POSTS_TABLE: ${env:POSTS_TABLE}\r\n    WRITER_TABLE: ${env:WRITER_TABLE}\r\n    S3_BUCKET: ${env:S3_BUCKET}\r\n    COMMENTS_TABLE: ${env:COMMENTS_TABLE}\r\n\r\n  iamRoleStatements:\r\n    - Effect: Allow\r\n      Action:\r\n        - dynamodb:PutItem\r\n        - dynamodb:GetItem\r\n        - dynamodb:Scan\r\n        - dynamodb:DeleteItem\r\n        - dynamodb:UpdateItem\r\n      Resource:\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:POSTS_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:WRITER_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:ADMIN_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:COMMENTS_TABLE}\r\n        - arn:aws:dynamodb:${self:provider.region}:*:table/${env:VIEWS_TABLE}\r\n    - Effect: Allow\r\n      Action:\r\n        - s3:PutObject\r\n        - s3:GetObject\r\n        - s3:PutObjectAcl\r\n      Resource: arn:aws:s3:::${env:S3_BUCKET}/*\r\n\r\nfunctions:\r\n  app:\r\n    handler: handler.handler\r\n    events:\r\n      - http:\r\n          path: /{proxy+}\r\n          method: any\r\n\r\nplugins:\r\n  - serverless-offline",
     "command": [
       "deploy"
     ],
@@ -773,12 +789,12 @@
     "serviceProviderAwsCfStackName": "wcrt-backend-dev",
     "serviceProviderAwsCfStackId": "arn:aws:cloudformation:eu-north-1:863816374996:stack/wcrt-backend-dev/97b82f80-43d9-11f0-b165-0e6b37e6d339",
     "serviceProviderAwsCfStackCreated": "2025-06-07T19:57:08.189Z",
-    "serviceProviderAwsCfStackUpdated": "2025-07-10T17:34:36.742Z",
+    "serviceProviderAwsCfStackUpdated": "2025-07-11T19:15:58.287Z",
     "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
     "serviceProviderAwsCfStackOutputs": [
       {
         "OutputKey": "AppLambdaFunctionQualifiedArn",
-        "OutputValue": "arn:aws:lambda:eu-north-1:863816374996:function:wcrt-backend-dev-app:15",
+        "OutputValue": "arn:aws:lambda:eu-north-1:863816374996:function:wcrt-backend-dev-app:17",
         "Description": "Current Lambda function version",
         "ExportName": "sls-wcrt-backend-dev-AppLambdaFunctionQualifiedArn"
       },
@@ -868,12 +884,15 @@
                         "dynamodb:PutItem",
                         "dynamodb:GetItem",
                         "dynamodb:Scan",
-                        "dynamodb:DeleteItem"
+                        "dynamodb:DeleteItem",
+                        "dynamodb:UpdateItem"
                       ],
                       "Resource": [
                         "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
                         "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-                        "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+                        "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+                        "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+                        "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
                       ]
                     },
                     {
@@ -910,7 +929,7 @@
           "Properties": {
             "Code": {
               "S3Bucket": "serverless-framework-deployments-eu-north-1-aa1edb09-c88d",
-              "S3Key": "serverless/wcrt-backend/dev/1752260864723-2025-07-11T19:07:44.723Z/wcrt-backend.zip"
+              "S3Key": "serverless/wcrt-backend/dev/1752261640351-2025-07-11T19:20:40.351Z/wcrt-backend.zip"
             },
             "Handler": "handler.handler",
             "Runtime": "nodejs18.x",
@@ -923,7 +942,8 @@
                 "ADMIN_TABLE": "wcrt-admin",
                 "POSTS_TABLE": "wcrt-posts",
                 "WRITER_TABLE": "wcrt-writers",
-                "S3_BUCKET": "wcrt-content-images"
+                "S3_BUCKET": "wcrt-content-images",
+                "COMMENTS_TABLE": "wcrt-comments"
               }
             },
             "Role": {
@@ -937,14 +957,14 @@
             "AppLogGroup"
           ]
         },
-        "AppLambdaVersion4mKxsQwUlmq7onPhKABjFi7B6NMxQ9iVZZwMWJbxCz4": {
+        "AppLambdaVersionGt8Pw5OnwKW6Gq5dd7jFLXcZazt24rurkJoSpXY": {
           "Type": "AWS::Lambda::Version",
           "DeletionPolicy": "Retain",
           "Properties": {
             "FunctionName": {
               "Ref": "AppLambdaFunction"
             },
-            "CodeSha256": "m6wXsmg7Jq4sEafnyltMuLOVmTDoq05eOtOrRDcyc4Y="
+            "CodeSha256": "KBz0bkwXhv2pXPIQrLT7vKy3WxcM+73hvUlu3u4PdWg="
           }
         },
         "ApiGatewayRestApi": {
@@ -1020,7 +1040,7 @@
             "AppLambdaPermissionApiGateway"
           ]
         },
-        "ApiGatewayDeployment1752260850844": {
+        "ApiGatewayDeployment1752261627781": {
           "Type": "AWS::ApiGateway::Deployment",
           "Properties": {
             "RestApiId": {
@@ -1080,7 +1100,7 @@
         "AppLambdaFunctionQualifiedArn": {
           "Description": "Current Lambda function version",
           "Value": {
-            "Ref": "AppLambdaVersion4mKxsQwUlmq7onPhKABjFi7B6NMxQ9iVZZwMWJbxCz4"
+            "Ref": "AppLambdaVersionGt8Pw5OnwKW6Gq5dd7jFLXcZazt24rurkJoSpXY"
           },
           "Export": {
             "Name": "sls-wcrt-backend-dev-AppLambdaFunctionQualifiedArn"

@@ -72,12 +72,15 @@
                     "dynamodb:PutItem",
                     "dynamodb:GetItem",
                     "dynamodb:Scan",
-                    "dynamodb:DeleteItem"
+                    "dynamodb:DeleteItem",
+                    "dynamodb:UpdateItem"
                   ],
                   "Resource": [
                     "arn:aws:dynamodb:eu-north-1:*:table/wcrt-posts",
                     "arn:aws:dynamodb:eu-north-1:*:table/wcrt-writers",
-                    "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin"
+                    "arn:aws:dynamodb:eu-north-1:*:table/wcrt-admin",
+                    "arn:aws:dynamodb:eu-north-1:*:table/wcrt-comments",
+                    "arn:aws:dynamodb:eu-north-1:*:table/wcrt-views"
                   ]
                 },
                 {
@@ -127,7 +130,8 @@
             "ADMIN_TABLE": "wcrt-admin",
             "POSTS_TABLE": "wcrt-posts",
             "WRITER_TABLE": "wcrt-writers",
-            "S3_BUCKET": "wcrt-content-images"
+            "S3_BUCKET": "wcrt-content-images",
+            "COMMENTS_TABLE": "wcrt-comments"
           }
         },
         "Role": {
