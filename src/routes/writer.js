@@ -411,16 +411,13 @@ router.patch('/:writerName/categories', verifyToken, verifyAdmin, async (req, re
             });
         }
 
-        // Convert to DynamoDB format
-        const dynamoFormattedCategories = categories.map(cat => ({ S: cat }));
-
-        // Update categories
+        // Update categories directly as a string array
         await dynamo.update({
             TableName: TABLE_NAME,
             Key: { writerName },
             UpdateExpression: 'SET categories = :categories',
             ExpressionAttributeValues: {
-                ':categories': dynamoFormattedCategories
+                ':categories': categories
             }
         }).promise();
 
@@ -437,7 +434,6 @@ router.patch('/:writerName/categories', verifyToken, verifyAdmin, async (req, re
         });
     }
 });
-
 
 
 module.exports = router;
