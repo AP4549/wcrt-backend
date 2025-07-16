@@ -164,6 +164,46 @@ router.get('/s3/upload-url', verifyToken, verifyWriter, async (req, res) => {
     }
   });
 
+  router.get('/admin/s3/upload-url', verifyToken, verifyAdmin, async (req, res) => {
+    const { fileName, fileType } = req.query;
+  
+    // Validate inputs
+    if (!fileName || !fileType) {
+      return res.status(400).json({ error: 'Missing fileName or fileType' });
+    }
+  
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(fileType)) {
+      return res.status(400).json({ error: 'Invalid file type' });
+    }
+  
+    // Configure S3 parameters
+    const s3Params = {
+      Bucket: process.env.S3_BUCKET,
+      Key: `uploads/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.]/g, '-')}`, // Sanitize filename
+      ContentType: fileType,
+      Expires: 60 * 5, // 5 minutes
+      // Remove ACL if your bucket has strict policies
+    };
+  
+    try {
+      const uploadURL = await s3.getSignedUrlPromise('putObject', s3Params);
+      const publicUrl = `https://${s3Params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Params.Key}`;
+      
+      res.status(200).json({
+        uploadURL,
+        publicUrl,
+        key: s3Params.Key // For debugging
+      });
+    } catch (err) {
+      console.error('S3 URL generation error:', err);
+      res.status(500).json({ 
+        error: 'Failed to generate upload URL',
+        details: err.message 
+      });
+    }
+  });
+
 // GET all posts (no auth)
 router.get('/', async (req, res) => {
     try {
@@ -265,7 +305,7 @@ router.patch('/:postId/status', verifyToken, verifyAdmin, async (req, res) => {
     }
 
     // Validate post_status
-    if (!post_status || !['open', 'approved', 'rejected'].includes(post_status)) {
+    if (!post_status || !['open', 'approved', 'rejected','edit'].includes(post_status)) {
         return res.status(400).json({
             status: 'error',
             error: 'Invalid or missing post_status. Must be one of: open, approved, rejected.'
@@ -600,53 +640,262 @@ router.get('/:postId/views', async (req, res) => {
 });
 
 // Edit post (writer only)
-router.patch('/:postId', verifyWriter, async (req, res) => {
-    try {
-        const { postId } = req.params;
-        const { title, content } = req.body;
+// router.patch('/:postId', verifyToken, verifyWriter, async (req, res) => {
+//     try {
+//         const { postId } = req.params;
+//         const {
+//             title,
+//             content,
+//             imageUrl,
+//             category,
+//             authorName,
+//             authorImage,
+//             uploadDate
+//         } = req.body;
 
-        if (!title && !content) {
+//         // if (
+//         //     !title && !content && !imageUrl && !category &&
+//         //     !authorName && !authorImage && !uploadDate
+//         // ) {
+//         //     return res.status(400).json({
+//         //         status: 'error',
+//         //         error: 'Missing fields to update'
+//         //     });
+//         // }
+
+//         const updateExpression = [];
+//         const expressionAttributeValues = {};
+//         const expressionAttributeNames = {};
+
+//         if (title) {
+//             updateExpression.push('#title = :title');
+//             expressionAttributeValues[':title'] = title;
+//             expressionAttributeNames['#title'] = 'title';
+//         }
+
+//         if (content) {
+//             updateExpression.push('#content = :content');
+//             expressionAttributeValues[':content'] = content;
+//             expressionAttributeNames['#content'] = 'content';
+//         }
+
+//         if (imageUrl) {
+//             updateExpression.push('#imageUrl = :imageUrl');
+//             expressionAttributeValues[':imageUrl'] = imageUrl;
+//             expressionAttributeNames['#imageUrl'] = 'imageUrl';
+//         }
+
+//         if (category) {
+//             updateExpression.push('#category = :category');
+//             expressionAttributeValues[':category'] = category;
+//             expressionAttributeNames['#category'] = 'category';
+//         }
+
+//         if (authorName) {
+//             updateExpression.push('#authorName = :authorName');
+//             expressionAttributeValues[':authorName'] = authorName;
+//             expressionAttributeNames['#authorName'] = 'authorName';
+//         }
+
+//         if (authorImage) {
+//             updateExpression.push('#authorImage = :authorImage');
+//             expressionAttributeValues[':authorImage'] = authorImage;
+//             expressionAttributeNames['#authorImage'] = 'authorImage';
+//         }
+
+//         if (uploadDate) {
+//             updateExpression.push('#uploadDate = :uploadDate');
+//             expressionAttributeValues[':uploadDate'] = uploadDate;
+//             expressionAttributeNames['#uploadDate'] = 'uploadDate';
+//         }
+
+//         // Always reset post_status to 'open' when edited
+//         updateExpression.push('#post_status = :post_status');
+//         expressionAttributeValues[':post_status'] = 'open';
+//         expressionAttributeNames['#post_status'] = 'post_status';
+
+//         const params = {
+//             TableName: POSTS_TABLE,
+//             Key: { postId },
+//             UpdateExpression: `SET ${updateExpression.join(', ')}`,
+//             ExpressionAttributeValues: expressionAttributeValues,
+//             ExpressionAttributeNames: expressionAttributeNames,
+//             ReturnValues: 'UPDATED_NEW'
+//         };
+
+//         const result = await dynamo.update(params).promise();
+
+//         res.status(200).json({
+//             status: 'success',
+//             message: 'Post updated successfully',
+//             data: result.Attributes
+//         });
+//     } catch (error) {
+//         console.error('Error updating post:', error);
+//         res.status(500).json({
+//             status: 'error',
+//             error: 'Internal server error'
+//         });
+//     }
+// });
+
+
+router.patch('/:postId', verifyToken, verifyWriter, async (req, res) => {
+    const { postId } = req.params;
+
+    let body;
+    if (Buffer.isBuffer(req.body)) {
+        try {
+            body = JSON.parse(req.body.toString());
+        } catch (err) {
             return res.status(400).json({
                 status: 'error',
-                error: 'Missing fields to update'
+                error: 'Invalid JSON body'
             });
         }
+    } else {
+        body = req.body;
+    }
 
-        const updateExpression = [];
-        const expressionAttributeValues = {};
+    const {
+        title,
+        content,
+        category,
+        authorName,
+        authorImage,
+        imageUrl,
+        uploadDate,
+        post_status = 'open' 
+    } = body;
 
-        if (title) {
-            updateExpression.push('title = :title');
-            expressionAttributeValues[':title'] = title;
-        }
+    // Validation
+    if (!title || !content || !category || !authorName || !uploadDate) {
+        return res.status(400).json({
+            status: 'error',
+            error: 'Missing required fields: title, content, category, authorName, uploadDate'
+        });
+    }
 
-        if (content) {
-            updateExpression.push('content = :content');
-            expressionAttributeValues[':content'] = content;
-        }
+    const params = {
+        TableName: TABLE_NAME,
+        Key: { postId },
+        UpdateExpression: `
+            SET 
+                title = :title,
+                content = :content,
+                category = :category,
+                authorName = :authorName,
+                authorImage = :authorImage,
+                imageUrl = :imageUrl,
+                uploadDate = :uploadDate,
+                post_status = :post_status
+        `,
+        ExpressionAttributeValues: {
+            ':title': title,
+            ':content': content,
+            ':category': category,
+            ':authorName': authorName,
+            ':authorImage': authorImage || '',
+            ':imageUrl': imageUrl || '',
+            ':uploadDate': uploadDate,
+            ':post_status': post_status
+        },
+        ReturnValues: 'ALL_NEW'
+    };
 
-        const params = {
-            TableName: POSTS_TABLE,
-            Key: { post_ID: postId },
-            UpdateExpression: `SET ${updateExpression.join(', ')}`,
-            ExpressionAttributeValues: expressionAttributeValues,
-            ReturnValues: 'UPDATED_NEW'
-        };
-
+    try {
         const result = await dynamo.update(params).promise();
-
         res.status(200).json({
             status: 'success',
             message: 'Post updated successfully',
-            data: result.Attributes
+            updatedPost: result.Attributes
         });
     } catch (error) {
         console.error('Error updating post:', error);
         res.status(500).json({
             status: 'error',
-            error: 'Internal server error'
+            error: 'Failed to update post'
         });
     }
 });
+
+router.patch('/adminedit/:postId', verifyToken, verifyAdmin, async (req, res) => {
+    const { postId } = req.params;
+
+    let body;
+    if (Buffer.isBuffer(req.body)) {
+        try {
+            body = JSON.parse(req.body.toString());
+        } catch (err) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Invalid JSON body'
+            });
+        }
+    } else {
+        body = req.body;
+    }
+
+    const {
+        title,
+        content,
+        category,
+        authorName,
+        authorImage,
+        imageUrl,
+        uploadDate
+    } = body;
+
+    // Validation
+    if (!title || !content || !category || !authorName || !uploadDate) {
+        return res.status(400).json({
+            status: 'error',
+            error: 'Missing required fields: title, content, category, authorName, uploadDate'
+        });
+    }
+
+    const params = {
+        TableName: TABLE_NAME,
+        Key: { postId },
+        UpdateExpression: `
+            SET 
+                title = :title,
+                content = :content,
+                category = :category,
+                authorName = :authorName,
+                authorImage = :authorImage,
+                imageUrl = :imageUrl,
+                uploadDate = :uploadDate
+        `,
+        ExpressionAttributeValues: {
+            ':title': title,
+            ':content': content,
+            ':category': category,
+            ':authorName': authorName,
+            ':authorImage': authorImage || '',
+            ':imageUrl': imageUrl || '',
+            ':uploadDate': uploadDate
+        },
+        ReturnValues: 'ALL_NEW'
+    };
+
+    try {
+        const result = await dynamo.update(params).promise();
+        res.status(200).json({
+            status: 'success',
+            message: 'Post updated successfully',
+            updatedPost: result.Attributes
+        });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to update post'
+        });
+    }
+});
+
+
+
 
 module.exports = router;
